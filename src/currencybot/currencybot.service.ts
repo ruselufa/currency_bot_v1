@@ -48,7 +48,7 @@ export class CurrencybotService {
 	}
 
 	// Запуск задачи обновления закрепленного сообщения через cron
-	@Cron(CronExpression.EVERY_30_MINUTES)
+	@Cron(CronExpression.EVERY_MINUTE)
 	async handleCron() {
 		await this.updatePinnedMessage();
 	}
