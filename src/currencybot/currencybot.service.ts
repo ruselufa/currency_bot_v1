@@ -28,7 +28,7 @@ export class CurrencybotService {
 
 			// Добавление обратных курсов для USD и EUR
 			rates.USD_inverse = (1 / rates.USD).toFixed(2);
-			rates.EUR_inverse = (1 / rates.EUR).toFixed(2);
+			// rates.EUR_inverse = (1 / rates.EUR).toFixed(2);
 
 			// Добавление курса биткоина к доллару
 			const bitcoinRateResponse = await axios.get(
@@ -48,7 +48,7 @@ export class CurrencybotService {
 	}
 
 	// Запуск задачи обновления закрепленного сообщения через cron
-	@Cron(CronExpression.EVERY_MINUTE)
+	@Cron(CronExpression.EVERY_30_MINUTES)
 	async handleCron() {
 		await this.updatePinnedMessage();
 	}
@@ -61,9 +61,8 @@ export class CurrencybotService {
 
 			// Формирование текста для сообщения
 			const messageText = `
-                💵 USD: ${rates.USD_inverse} ₽ |
-💶 EUR: ${rates.EUR_inverse} ₽ |
-🥇 BTC: ${rates.BTC} |
+				🥇 BTC: ${rates.BTC} |
+💵 USD: ${rates.USD_inverse} ₽ |
             `;
 
 			// Отправка обновленного сообщения в канал
