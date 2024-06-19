@@ -5,6 +5,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { ConfigService } from '@nestjs/config';
 import { ICurrencyBotOptions } from './currencybot.inteface';
 import { getTelegramConfig } from 'src/configs/telegram.config';
+import { Parser } from 'xml2js';
 
 @Injectable()
 export class CurrencybotService {
@@ -20,14 +21,29 @@ export class CurrencybotService {
 	}
 
 	// Метод для получения курсов валют
-	async getCurrencyRates(): Promise<{ [key: string]: number }> {
+	async getCurrencyRates(): Promise<{ [key: string]: string }> {
 		try {
 			// Запрос курсов валют с внешнего API
-			const response = await axios.get('https://api.exchangerate-api.com/v4/latest/RUB');
-			const rates = response.data.rates;
+			const response = await axios.get('http://www.cbr.ru/scripts/XML_daily.asp');
+			const dataCbrf = response.data;
 
+			// Парсинг XML данных
+			const parser = new Parser();
+			const result = await parser.parseStringPromise(dataCbrf);
+
+			// Извлечение курса USD
+			const valutes = result.ValCurs.Valute;
+			const usdValute = valutes.find(valute => valute.CharCode[0] === 'USD');
+			const usdRate = usdValute.Value[0].replace(',', '.'); // Заменяем запятую на точку для корректного преобразования в число
+
+			// Форматирование курса USD в нужном формате
+        	const usdFormatted = new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB' }).format(usdRate);
+
+			// Объект для хранения курсов валют
+			const rates: { [key: string]: string } = {};
+			rates.USD = usdFormatted;
 			// Добавление обратных курсов для USD и EUR
-			rates.USD_inverse = (1 / rates.USD).toFixed(2);
+			// rates.USD_inverse = (1 / rates.USD).toFixed(2);
 			// rates.EUR_inverse = (1 / rates.EUR).toFixed(2);
 
 			// Добавление курса биткоина к доллару
@@ -35,9 +51,11 @@ export class CurrencybotService {
 				'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd',
 			);
 			const bitcoinRate = bitcoinRateResponse.data.bitcoin.usd;
-			rates.BTC = Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
-				bitcoinRate,
-			);
+			const bitcoinFormatted = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(bitcoinRate);
+			rates.BTC = bitcoinFormatted;
+			// Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+			// 	bitcoinRate,
+			// );
 
 			return rates;
 		} catch (error) {
@@ -62,7 +80,7 @@ export class CurrencybotService {
 			// Формирование текста для сообщения
 			const messageText = `
 				🥇 BTC: ${rates.BTC} |
-💵 USD: ${rates.USD_inverse} ₽ |
+💵 USD: ${rates.USD} |
             `;
 
 			// Отправка обновленного сообщения в канал
@@ -79,5 +97,16 @@ export class CurrencybotService {
 			// Обработка ошибок при обновлении закрепленного сообщения
 			this.logger.error('Error updating pinned message:', error);
 		}
+	}
+
+	async getCurrentDateForCbrf() {
+		const now = new Date();
+
+		//Форматирование даты в строку DD/MM/YYYY
+
+		const day = String(now.getDate()).padStart(2, '0');
+		const month = String(now.getMonth() + 1).padStart(2, '0');
+		const year = now.getFullYear();
+		return `${day}/${month}/${year}`;
 	}
 }
